@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>JavaScript simple NN</h2>
+
+<p>xxxxxxxxxxxxxxx</p>
+
+<button onclick="myFunction()">Try it</button>
+
+<p id="demo0"></p>
+
+<p id="demo1"></p>
+<canvas id="gc" width="400" height="400"></canvas>
+<script>
+'use strict';
+
+// 2 features, 3 hidden, 1 output
+
+class Matrix {
+	constructor( n=3, m=3, initV=0. ) { // init with 0 or random values
+		this.n=n;
+		this.m=m;
+		this.val = [];
+		for ( let i=0; i<n; i++ ) {
+			this.val[i] = [];
+			for ( let j=0; j<m; j++ ) {
+				if ( initV === 'r' ) // init with random values 0 to 1
+					this.val[i][j] = Math.random();
+				else if ( initV === 'm' ) // init with random values -2 to 2 (2 gives more stable results than 1)
+					this.val[i][j] = randIntnp( 2 );
+				else
+					this.val[i][j] = initV;
+			}
+		}
+	}
+	
+	put ( i, j, val ) { // put value
+		if ( i > this.n || j > this.m  || i < 0 || j < 0 ) return -1;
+		this.val[i][j] = val;
+	}
+	
+	putArrl ( i, arr ) { // put an array, by line
+		if ( i > this.n || i < 0 ) return -1;
+		if ( arr.constructor !== Array) return -2; // fastest check for array
+		if ( arr.length < this.m ) return -3;
+		for ( let j=0; j<this.m; j++ )
+			this.val[i][j] = arr[j];
+	}
+	
+	putArrc ( j, arr ) { // put an array, by column
+		if ( j > this.m || j < 0 ) return -1;
+		if ( arr.constructor !== Array) return -2;
+		if ( arr.length < this.n ) return -3;
+		for ( let i=0; i<this.n; i++ )
+			this.val[i][j] = arr[i];
+	}
+	
+	get ( i, j ) { // get value
+		if ( i > this.n || j > this.m ) return undefined;
+		return this.val[i][j];
+	}
+	
+	add ( b, neg=false ) { // add matrices, neg=true: subtract
+		let nn = Math.min( this.n, b.n );
+		let mm = Math.min( this.m, b.m );
+		for ( let i=0; i<nn; i++ ) {
+			for ( let j=0; j<mm; j++ ) {
+				if (neg)
+					this.val[i][j] -= b.val[i][j];
+				else
+					this.val[i][j] += b.val[i][j];
+			}
+		}
+	}
+	
+	mult ( b ) { // Hadamard product (element-wise multiplication) or multiplication with number
+		let nn = this.n;
+		let mm = this.m;
+		if ( typeof b === "object") {
+			nn = Math.min( this.n, b.n );
+			mm = Math.min( this.m, b.m );
+		}
+		for ( let i=0; i<nn; i++ ) {
+			for ( let j=0; j<mm; j++ ) {
+				if ( typeof b === "object")
+					this.val[i][j] *= b.val[i][j];
+				else
+					this.val[i][j] *= b;
+			}
+		}
+	}
+	
+	dot ( b, owr ) { // regular matrix product, owr=true: overwrite matrix
+		let resM = new Matrix( this.n, b.m );
+		for ( let i=0; i<this.n; i++ ) {
+			for ( let j=0; j<b.m; j++ ) {
+				for ( let k=0; k<this.m; k++ ) {
+					//resM.put(i, j, resM.get(i, j) + this.val[i][k] * b.val[k][j]);
+					resM.val[i][j] += this.val[i][k] * b.val[k][j];
+				}
+			}
+		}
+		if (owr)
+			for ( let i=0; i<this.n; i++ )
+				for ( let j=0; j<b.m; j++ )
+					this.val[i][j] = resM[i][j];
+		else
+			return resM;
+	}
+	
+	trans () { // transpose
+		let resM = new Matrix( this.m, this.n );
+		for ( let i=0; i<this.n; i++ ) {
+			for ( let j=0; j<this.m; j++ ) {
+				resM.val[j][i] = this.val[i][j];
+			}
+		}
+		return resM;
+	}
+	
+	sig (deriv) { // sigmoid on all entries
+		let nn = this.n;
+		let mm = this.m;
+		for ( let i=0; i<nn; i++ ) {
+			for ( let j=0; j<mm; j++ ) {
+					if (!deriv)
+						this.val[i][j] = 1. / ( 1. + Math.exp(-this.val[i][j]) );
+					else
+						this.val[i][j] = Math.exp(-this.val[i][j]) / ( 1. + Math.exp(-this.val[i][j]) ) / ( 1. + Math.exp(-this.val[i][j]) );
+			}
+		}
+	}
+}
+
+function myFunction() {
+
+	//document.getElementById("demo0").innerHTML = "call to A: " + (t1 - t0);
+	//document.getElementById("demo1").innerHTML = "call to B: " + (t1 - t0);
+	
+	//var canv=document.getElementById("gc");
+	//var ctx=canv.getContext("2d");
+	//drawGrid(canv, ctx, 50, 50, 60, 60, 8);
+	//let tmtrx = new Matrix(4,4,'m');
+	//tmtrx.mult(2);
+	//console.log(tmtrx);
+	//drawArr(canv, ctx, 50, 50, 60, 60, 4, tmtrx);
+	
+	let inp = new Matrix(1, 8);
+	inp.putArrl(0, [0, 0, 1, 1, 0, 1, 0, 1]);
+	let wInpHid = new Matrix(8, 12, 'm');
+	//console.log(inp.val.toString());
+	let hidden = new Matrix();
+	hidden = inp.dot(wInpHid, false);
+	hidden.sig(false);
+	//console.log(hidden.val.toString());
+	let wHidOut = new Matrix(12, 4, 'm');
+	let output = new Matrix();
+	output = hidden.dot(wHidOut, false);
+	//console.log(output.val.toString());
+	
+	// learning
+	// dWho = -e sig(ai Wih)^t delta
+	let delta = new Matrix(1, 4);
+	//delta.putArrl(0, [0, 1, 1, 0]); // target
+	delta.putArrl(0, [1, 0, 0, 1]); // target
+	delta.add(output, true); // cost function E
+	let epsilon = 0.01;
+	let dwho = new Matrix(12, 4);
+	let sigtrans = new Matrix();
+	sigtrans = hidden.trans();
+	dwho = sigtrans.dot(delta, false);
+	dwho.mult(epsilon);
+	//console.log(dwho.val.toString());
+	wHidOut.add(dwho);
+	
+	// dWih = -e ai^t sig'(ai Wih) delta Who^t
+	let inptrans = new Matrix();
+	inptrans = inp.trans();
+	hidden.sig(true);
+	let dltWho = new Matrix();
+	dltWho = delta.dot(wHidOut.trans(), false);
+	hidden.mult(dltWho);
+	//console.log(hidden);
+	//console.log(inptrans);
+	let dwih = new Matrix(8, 12);
+	dwih = inptrans.dot(hidden, false);
+	dwih.mult(epsilon);
+	//console.log(dwih.val.toString());
+	wInpHid.add(dwih);
+	
+	//console.log(wInpHid);
+	//console.log(wHidOut);
+	
+	// calculate new output
+	hidden = inp.dot(wInpHid, false);
+	hidden.sig(false);
+	output = hidden.dot(wHidOut, false);
+	//console.log(output);
+	
+	for ( let l=0; l<100; l++ ) {
+		// learning
+		// dWho = -e sig(ai Wih)^t delta
+		//delta.putArrl(0, [0, 1, 1, 0]); // target
+		delta.putArrl(0, [1, 0, 0, 1]); // target
+		delta.add(output, true); // cost function E
+		//console.log(delta.val.toString());
+		sigtrans = hidden.trans();
+		dwho = sigtrans.dot(delta, false);
+		dwho.mult(epsilon);
+		wHidOut.add(dwho);
+		
+		// dWih = -e ai^t sig'(ai Wih) delta Who^t
+		inptrans = inp.trans();
+		hidden.sig(true);
+		dltWho = delta.dot(wHidOut.trans(), false);
+		hidden.mult(dltWho);
+		dwih = inptrans.dot(hidden, false);
+		dwih.mult(epsilon);
+		wInpHid.add(dwih);
+		
+		// calculate new output
+		hidden = inp.dot(wInpHid, false);
+		hidden.sig(false);
+		output = hidden.dot(wHidOut, false);
+	}
+	console.log(output.val.toString());
+}
+
+function drawGrid(canv, ctx, x0, y0, width, height, nlines) {
+	let sclx = width / nlines;
+	let scly = height / nlines;
+	for ( let i=0; i<nlines+1; i++ ) {
+		ctx.beginPath();
+		ctx.moveTo(x0+i*sclx, y0);
+		ctx.lineTo(x0+i*sclx, y0+height);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(x0, y0+i*scly);
+		ctx.lineTo(x0+width, y0+i*scly);
+		ctx.stroke();
+	}
+}
+
+function drawArr(canv, ctx, x0, y0, width, height, nlines, arr) {
+	let sclx = width / nlines;
+	let scly = height / nlines;
+	for ( let i=0; i<nlines; i++ ) {
+		for ( let j=0; j<nlines; j++ ) {
+			ctx.beginPath();
+			if ( arr.get(i,j) > 1 )
+				ctx.fillRect(x0+i*sclx-1, y0+j*scly-1, sclx+2, scly+2);
+			else
+				ctx.rect(x0+i*sclx, y0+j*scly, sclx, scly);
+			ctx.stroke();
+		}
+	}
+}
+
+/*
+// Simplified from: https://github.com/Elyx0/rosenblattperceptronjs/blob/master/src/Perceptron.js 
+class Perceptron {
+  constructor(bias=1,learningRate=0.1,weights=[]) {
+    this.bias = bias;
+    this.learningRate = learningRate;
+    this.weights = weights;
+    this.trainingSet = [];
+  }
+
+  init(inputs,bias=this.bias) {
+    // Initialize randomly and appending bias weight
+    this.weights = [...inputs.map(i => Math.random()), bias];
+  }
+
+  adjustWeights(inputs,expected) {
+    // ... 
+    const actual = this.evaluate(inputs);
+    if (actual == expected) return true; // Correct weights, return and don't touch anything.
+
+    // Otherwise update each weight by adding the error * learningRate relative to the input
+    this.weights = this.weights.map((w,i) => w += this.delta(actual, expected,inputs[i]));
+    // ...
+  }
+
+  // Calculates the difference between actual and expected for a given input
+  delta(actual, expected, input,learningRate=this.learningRate) {
+    const error = expected - actual; // How far off were we
+    return error * learningRate * input;
+  }
+
+  // Sum inputs * weights
+  weightedSum(inputs=this.inputs,weights=this.weights) {
+    return inputs.map((inp,i) => inp * weights[i]).reduce((x,y) => x+y,0);
+  }
+
+  // Evaluate using the current weights
+  evaluate(inputs) {
+    return this.activate(this.weightedSum(inputs));
+  }
+
+  // Heaviside as the activation function
+  activate(value) {
+    return value >= 0 ? 1 : 0;
+  }
+}*/
+
+function randInt( maxN ) {
+	return ~~( Math.random() * maxN );     // returns a number between 0 and maxN-1
+}
+
+function randIntnp( maxN ) {
+	return ~~( Math.random() * 2 * maxN ) - maxN;     // returns a number between -(maxN-1) and maxN-1
+}
+
+</script>
+
+</body>
+</html>
