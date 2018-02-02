@@ -138,8 +138,8 @@ function myFunction() {
 	//document.getElementById("demo0").innerHTML = "call to A: " + (t1 - t0);
 	//document.getElementById("demo1").innerHTML = "call to B: " + (t1 - t0);
 	
-	//var canv=document.getElementById("gc");
-	//var ctx=canv.getContext("2d");
+	var canv=document.getElementById("gc");
+	var ctx=canv.getContext("2d");
 	//drawGrid(canv, ctx, 50, 50, 60, 60, 8);
 	//let tmtrx = new Matrix(4,4,'m');
 	//tmtrx.mult(2);
@@ -148,6 +148,7 @@ function myFunction() {
 	
 	let inp = new Matrix(1, 8);
 	inp.putArrl(0, [0, 0, 1, 1, 0, 1, 0, 1]);
+	drawArrSQ(canv, ctx, 10, 10, 60, 60, inp);
 	let wInpHid = new Matrix(8, 12, 'm');
 	//console.log(inp.val.toString());
 	let hidden = new Matrix();
@@ -224,7 +225,9 @@ function myFunction() {
 		hidden.sig(false);
 		output = hidden.dot(wHidOut, false);
 	}
+	drawArrSQ(canv, ctx, 80, 10, 60, 60, hidden);
 	console.log(output.val.toString());
+	drawArrSQ(canv, ctx, 150, 10, 60, 60, output);
 }
 
 function drawGrid(canv, ctx, x0, y0, width, height, nlines) {
@@ -242,16 +245,50 @@ function drawGrid(canv, ctx, x0, y0, width, height, nlines) {
 	}
 }
 
-function drawArr(canv, ctx, x0, y0, width, height, nlines, arr) {
-	let sclx = width / nlines;
-	let scly = height / nlines;
-	for ( let i=0; i<nlines; i++ ) {
-		for ( let j=0; j<nlines; j++ ) {
+function drawArr(canv, ctx, x0, y0, width, height, arr) {
+	let sclx = width / arr.m;
+	let scly = height / arr.n;
+	for ( let i=0; i<arr.n; i++ ) {
+		for ( let j=0; j<arr.m; j++ ) {
 			ctx.beginPath();
-			if ( arr.get(i,j) > 1 )
-				ctx.fillRect(x0+i*sclx-1, y0+j*scly-1, sclx+2, scly+2);
-			else
-				ctx.rect(x0+i*sclx, y0+j*scly, sclx, scly);
+			if ( arr.get(i,j) > 0 ) {
+				//ctx.fillStyle="#AA0303"; // #RRGGBB
+				//let h = arr.get(i,j) * 10 * 0x10000 + arr.get(i,j) * 10 * 0x100 + arr.get(i,j) * 10 * 0x1; // r * 0x10000 + g * 0x100 + b * 0x1;
+				let h = Math.round(arr.get(i,j) * 100) * 0x1;
+				ctx.fillStyle= '#' + ('' + h.toString(16) + h.toString(16) + h.toString(16));
+				//console.log('#' + ('' + h.toString(16) + h.toString(16) + h.toString(16)));
+				ctx.fillRect(x0+j*sclx-1, y0+i*scly-1, sclx+2, scly+2);
+			} else
+				ctx.rect(x0+j*sclx, y0+i*scly, sclx, scly);
+			ctx.stroke();
+		}
+	}
+}
+
+function drawArrSQ(canv, ctx, x0, y0, width, height, arr) {
+	let mm = arr.m;
+	let nn = arr.n;
+	if ( mm === 1 && nn % 2 === 0 ) {
+		mm = nn / 2;
+		nn = nn / 2;
+	}
+	if ( nn === 1 && mm % 2 === 0 ) {
+		nn = mm / 2;
+		mm = mm / 2;
+	}
+	let sclx = width / mm;
+	let scly = height / nn;
+	//console.log('x: ' + sclx + ' y: ' + scly);
+	for ( let i=0; i<arr.n; i++ ) {
+		for ( let j=0; j<arr.m; j++ ) {
+			ctx.beginPath();
+			if ( arr.get(i,j) > 0 ) {
+				let h = Math.round(arr.get(i,j) * 100) * 0x1;
+				ctx.fillStyle= '#' + ('' + h.toString(16) + h.toString(16) + h.toString(16));
+				ctx.fillRect(x0+(j % mm)*sclx-1, y0+(j - j % mm)/2*scly-1, sclx+2, scly+2);
+			} else
+				ctx.rect(x0+(j % mm)*sclx, y0+(j - j % mm)/2*scly, sclx, scly);
+			//console.log('i: ' + (j-j%mm)/2 + ' j: ' + j%mm + ' for ' + arr.n + ' and ' + arr.m);
 			ctx.stroke();
 		}
 	}
