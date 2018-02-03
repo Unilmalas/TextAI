@@ -2,16 +2,15 @@
 <html>
 <body>
 
-<h2>JavaScript simple NN</h2>
+<h2>JavaScript Simple Neural Network</h2>
 
-<p>xxxxxxxxxxxxxxx</p>
+<p>A very simple pixel recognition Neural Network. Two input shapes, a hidden layer of three shapes and one output.</p>
 
 <button onclick="myFunction()">Try it</button>
 
-<p id="demo0"></p>
+<p>--- Input --- Weigths - Hidden -- Weights - Output ----- Target</p>
 
-<p id="demo1"></p>
-<canvas id="gc" width="400" height="400"></canvas>
+<canvas id="gc" width="600" height="400"></canvas>
 <script>
 'use strict';
 
@@ -131,48 +130,66 @@ class Matrix {
 			}
 		}
 	}
+	
+	split (n, k) { // split arry n-ways (to draw density matrices)
+		let resM = new Matrix( this.m, this.n );
+		resM.n = this.n;
+		resM.m = this.m / n;
+		for ( let i=0; i<this.n; i++ ) {
+			for ( let j=( k * resM.m ); j<( (k+1) * resM.m); j++ ) {
+				resM.val[i][j-( k * resM.m)] = this.val[i][j];
+			}
+		}
+		return resM;		
+	}
+	
+	msum (n0, m0, n1, m1) { // returns the sum of all elements in the given minor
+		let sum = 0.;
+		if ( n0 >= n1 || m0 >= m1 ) return 0.;
+		n0 = Math.max(0,n0);
+		n1 = Math.max(0,n1);
+		m0 = Math.max(0,m0);
+		m1 = Math.max(0,m1);
+		for ( let i=n0; i<n1; i++ ) {
+			for ( let j=m0; j<m1; j++ ) {
+				sum += this.val[i][j];
+			}
+		}
+		return sum;		
+	}
 }
 
 function myFunction() {
-
-	//document.getElementById("demo0").innerHTML = "call to A: " + (t1 - t0);
-	//document.getElementById("demo1").innerHTML = "call to B: " + (t1 - t0);
-	
 	var canv=document.getElementById("gc");
 	var ctx=canv.getContext("2d");
-	//drawGrid(canv, ctx, 50, 50, 60, 60, 8);
-	//let tmtrx = new Matrix(4,4,'m');
-	//tmtrx.mult(2);
-	//console.log(tmtrx);
-	//drawArr(canv, ctx, 50, 50, 60, 60, 4, tmtrx);
+	ctx.clearRect(0, 0, canv.width, canv.height); // clear canvas
 	
 	let inp = new Matrix(1, 8);
 	inp.putArrl(0, [0, 0, 1, 1, 0, 1, 0, 1]);
-	drawArrSQ(canv, ctx, 10, 10, 60, 60, inp);
+	drawArrSQ(canv, ctx, 10, 10, 80, 80, inp.split(2,0));
+	drawArrSQ(canv, ctx, 10, 100, 80, 80, inp.split(2,1));
+	
 	let wInpHid = new Matrix(8, 12, 'm');
-	//console.log(inp.val.toString());
 	let hidden = new Matrix();
 	hidden = inp.dot(wInpHid, false);
 	hidden.sig(false);
-	//console.log(hidden.val.toString());
 	let wHidOut = new Matrix(12, 4, 'm');
 	let output = new Matrix();
 	output = hidden.dot(wHidOut, false);
-	//console.log(output.val.toString());
 	
-	// learning
+	// learning - for clarity the first learning step is outside the training loop
 	// dWho = -e sig(ai Wih)^t delta
 	let delta = new Matrix(1, 4);
 	//delta.putArrl(0, [0, 1, 1, 0]); // target
 	delta.putArrl(0, [1, 0, 0, 1]); // target
 	delta.add(output, true); // cost function E
-	let epsilon = 0.01;
+	
+	let epsilon = 0.015;
 	let dwho = new Matrix(12, 4);
 	let sigtrans = new Matrix();
 	sigtrans = hidden.trans();
 	dwho = sigtrans.dot(delta, false);
 	dwho.mult(epsilon);
-	//console.log(dwho.val.toString());
 	wHidOut.add(dwho);
 	
 	// dWih = -e ai^t sig'(ai Wih) delta Who^t
@@ -182,30 +199,23 @@ function myFunction() {
 	let dltWho = new Matrix();
 	dltWho = delta.dot(wHidOut.trans(), false);
 	hidden.mult(dltWho);
-	//console.log(hidden);
-	//console.log(inptrans);
 	let dwih = new Matrix(8, 12);
 	dwih = inptrans.dot(hidden, false);
 	dwih.mult(epsilon);
-	//console.log(dwih.val.toString());
-	wInpHid.add(dwih);
-	
-	//console.log(wInpHid);
-	//console.log(wHidOut);
+
+	wInpHid.add(dwih);	
 	
 	// calculate new output
 	hidden = inp.dot(wInpHid, false);
 	hidden.sig(false);
 	output = hidden.dot(wHidOut, false);
-	//console.log(output);
 	
-	for ( let l=0; l<100; l++ ) {
+	for ( let l=0; l<100; l++ ) { // training loop
 		// learning
 		// dWho = -e sig(ai Wih)^t delta
 		//delta.putArrl(0, [0, 1, 1, 0]); // target
 		delta.putArrl(0, [1, 0, 0, 1]); // target
 		delta.add(output, true); // cost function E
-		//console.log(delta.val.toString());
 		sigtrans = hidden.trans();
 		dwho = sigtrans.dot(delta, false);
 		dwho.mult(epsilon);
@@ -225,9 +235,33 @@ function myFunction() {
 		hidden.sig(false);
 		output = hidden.dot(wHidOut, false);
 	}
-	drawArrSQ(canv, ctx, 80, 10, 60, 60, hidden);
-	console.log(output.val.toString());
-	drawArrSQ(canv, ctx, 150, 10, 60, 60, output);
+	
+	// draw weights inp -> hidden
+	ctx.fillText(wInpHid.msum(0,0,4,4).toPrecision(2), 100, 50);
+	ctx.fillText(wInpHid.msum(0,4,4,8).toPrecision(2), 100, 140);
+	ctx.fillText(wInpHid.msum(0,8,4,12).toPrecision(2), 100, 230);
+	// add 2nd inp weights
+	ctx.fillText(wInpHid.msum(4,0,8,4).toPrecision(2), 100, 70);
+	ctx.fillText(wInpHid.msum(4,4,8,8).toPrecision(2), 100, 160);
+	ctx.fillText(wInpHid.msum(4,8,8,12).toPrecision(2), 100, 250);
+	
+	// draw hidden layer
+	drawArrSQ(canv, ctx, 130, 10, 80, 80, hidden.split(3,0));
+	drawArrSQ(canv, ctx, 130, 100, 80, 80, hidden.split(3,1));
+	drawArrSQ(canv, ctx, 130, 190, 80, 80, hidden.split(3,2));
+	
+	// draw weights hidden -> out
+	ctx.fillText(wHidOut.msum(0,0,4,4).toPrecision(2), 220, 50);
+	ctx.fillText(wHidOut.msum(4,0,8,4).toPrecision(2), 220, 140);
+	ctx.fillText(wHidOut.msum(8,0,12,4).toPrecision(2), 220, 230);	
+	
+	// draw output
+	//console.log(output.val.toString());
+	drawArrSQ(canv, ctx, 250, 10, 80, 80, output);
+	
+	// draw target
+	delta.putArrl(0, [1, 0, 0, 1]); // target - careful, still temporary, target has to be changed 3 times manually !
+	drawArrSQ(canv, ctx, 350, 10, 80, 80, delta);
 }
 
 function drawGrid(canv, ctx, x0, y0, width, height, nlines) {
@@ -245,18 +279,15 @@ function drawGrid(canv, ctx, x0, y0, width, height, nlines) {
 	}
 }
 
-function drawArr(canv, ctx, x0, y0, width, height, arr) {
+function drawArr(canv, ctx, x0, y0, width, height, arr) { // not used
 	let sclx = width / arr.m;
 	let scly = height / arr.n;
 	for ( let i=0; i<arr.n; i++ ) {
 		for ( let j=0; j<arr.m; j++ ) {
 			ctx.beginPath();
-			if ( arr.get(i,j) > 0 ) {
-				//ctx.fillStyle="#AA0303"; // #RRGGBB
-				//let h = arr.get(i,j) * 10 * 0x10000 + arr.get(i,j) * 10 * 0x100 + arr.get(i,j) * 10 * 0x1; // r * 0x10000 + g * 0x100 + b * 0x1;
-				let h = Math.round(arr.get(i,j) * 100) * 0x1;
-				ctx.fillStyle= '#' + ('' + h.toString(16) + h.toString(16) + h.toString(16));
-				//console.log('#' + ('' + h.toString(16) + h.toString(16) + h.toString(16)));
+			if ( arr.get(i,j) > 0.5 ) {
+				let h = Math.round(150 - arr.get(i,j)*100) * 0x1;
+				ctx.fillStyle= '#' + ('' + h.toString(16) + h.toString(16) + h.toString(16)); // toString(base)
 				ctx.fillRect(x0+j*sclx-1, y0+i*scly-1, sclx+2, scly+2);
 			} else
 				ctx.rect(x0+j*sclx, y0+i*scly, sclx, scly);
@@ -265,7 +296,7 @@ function drawArr(canv, ctx, x0, y0, width, height, arr) {
 	}
 }
 
-function drawArrSQ(canv, ctx, x0, y0, width, height, arr) {
+function drawArrSQ(canv, ctx, x0, y0, width, height, arr) { // draw a density matrix
 	let mm = arr.m;
 	let nn = arr.n;
 	if ( mm === 1 && nn % 2 === 0 ) {
@@ -279,67 +310,24 @@ function drawArrSQ(canv, ctx, x0, y0, width, height, arr) {
 	let sclx = width / mm;
 	let scly = height / nn;
 	//console.log('x: ' + sclx + ' y: ' + scly);
+	ctx.font = "12px Arial";
 	for ( let i=0; i<arr.n; i++ ) {
 		for ( let j=0; j<arr.m; j++ ) {
 			ctx.beginPath();
 			if ( arr.get(i,j) > 0 ) {
-				let h = Math.round(arr.get(i,j) * 100) * 0x1;
-				ctx.fillStyle= '#' + ('' + h.toString(16) + h.toString(16) + h.toString(16));
+				let h = Math.round(150 - arr.get(i,j)*100); // 100 - ... : higher values should appear darker
+				ctx.fillStyle="white";
+				ctx.fillStyle= '#' + (h.toString(16) + h.toString(16) + h.toString(16));
 				ctx.fillRect(x0+(j % mm)*sclx-1, y0+(j - j % mm)/2*scly-1, sclx+2, scly+2);
 			} else
 				ctx.rect(x0+(j % mm)*sclx, y0+(j - j % mm)/2*scly, sclx, scly);
+			ctx.fillStyle="red";
+			ctx.fillText(Math.round(arr.get(i,j)*10)/10, x0+(j % mm)*sclx+sclx/4, y0+(j - j % mm)/2*scly+2*scly/3);
 			//console.log('i: ' + (j-j%mm)/2 + ' j: ' + j%mm + ' for ' + arr.n + ' and ' + arr.m);
 			ctx.stroke();
 		}
 	}
 }
-
-/*
-// Simplified from: https://github.com/Elyx0/rosenblattperceptronjs/blob/master/src/Perceptron.js 
-class Perceptron {
-  constructor(bias=1,learningRate=0.1,weights=[]) {
-    this.bias = bias;
-    this.learningRate = learningRate;
-    this.weights = weights;
-    this.trainingSet = [];
-  }
-
-  init(inputs,bias=this.bias) {
-    // Initialize randomly and appending bias weight
-    this.weights = [...inputs.map(i => Math.random()), bias];
-  }
-
-  adjustWeights(inputs,expected) {
-    // ... 
-    const actual = this.evaluate(inputs);
-    if (actual == expected) return true; // Correct weights, return and don't touch anything.
-
-    // Otherwise update each weight by adding the error * learningRate relative to the input
-    this.weights = this.weights.map((w,i) => w += this.delta(actual, expected,inputs[i]));
-    // ...
-  }
-
-  // Calculates the difference between actual and expected for a given input
-  delta(actual, expected, input,learningRate=this.learningRate) {
-    const error = expected - actual; // How far off were we
-    return error * learningRate * input;
-  }
-
-  // Sum inputs * weights
-  weightedSum(inputs=this.inputs,weights=this.weights) {
-    return inputs.map((inp,i) => inp * weights[i]).reduce((x,y) => x+y,0);
-  }
-
-  // Evaluate using the current weights
-  evaluate(inputs) {
-    return this.activate(this.weightedSum(inputs));
-  }
-
-  // Heaviside as the activation function
-  activate(value) {
-    return value >= 0 ? 1 : 0;
-  }
-}*/
 
 function randInt( maxN ) {
 	return ~~( Math.random() * maxN );     // returns a number between 0 and maxN-1
