@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<p>Chatbot</p>
+
+<p id="output"></p>
+
+<input type="text" id="input" value="John">
+
+<button onclick="update()">Submit</button>
+
+<script>
+'use strict';
+
+var questionNum = 0;					// keep count of question, used for IF condition
+var overlord = new overlord("good");	// FSM to handle overall conversation flow
+var clips = [];							// clip storage
+setup();								// initial call
+
+function setup() { // setup chatbot (later: load chat script)
+	clips.push( new clip( "<h2>what is your name?</h2>", "q" ));
+	clips[0].addropt(1);
+	clips.push( new clip( "<h2>hello ##v0##</h2>", "s" ));
+	clips[1].addropt(2);
+	clips.push( new clip( "<h2>how old are you?</h2>", "q" ));
+	clips[2].addropt(3);
+	clips.push( new clip( "<h2>That means you were born in ##v0##</h2>", "s" ));
+	clips[3].addropt(4);
+	clips.push( new clip( "<h2>where are you from?</h2>", "q" ));
+	clips[4].addropt(5);
+	clips.push( new clip( "<h2>do you like ##v0##?</h2>", "q" ));
+	clips[5].addropt(0);
+	var output = document.getElementById('output');	// store id="output" in output variable
+	output.innerHTML = clips[0].cliptext;			// ouput first question
+	overlord.nextclip = clips[0].getropt();
+}
+
+function update(progress=1000) { // conversation update loop
+    let input = document.getElementById("input").value;
+    console.log(input);
+	
+	setTimeout( function() {
+		clips[ overlord.nextclip ].outputClip( input );
+		let type = clips[ overlord.nextclip ].type;
+		
+		document.getElementById("input").value = "";   		// clear text box
+		overlord.nextclip = clips[ overlord.nextclip ].getropt();
+		
+		if ( type === "s" ) // in case of statements continue conversation loop (otherwise wait for answer)
+			update();
+
+		questionNum++;
+		
+	}, overlord.timeint );
+}
+
+function overlord(mood) { // finite state machine
+	this.mood = mood;		// state
+	this.timeint = 2000;	// time interval till next question
+	this.nextclip = 0;
+	
+	this.changemood = function(mood) {
+		this.mood = mood;
+	}
+}
+
+// conversation class: triggers -> requirements -> actions
+function clip(txt, type) { // a clip (statement, question,... with reaction options)
+	this.triggers = [];		// what might trigger this clip
+	this.inputs = [];		// inputs to clip like name, age,... (requirements)
+	this.type = type;		// clip type (s=statement, q=question)
+	this.cliptext = txt;	// actual wording (variables are ##v0##)
+	this.reac_answer ="";	// storage for answer
+	this.reac_key = "";		// storage for answer keywords
+	this.reac_mood = "";	// perceived reaction mood
+	this.reac_options = []; // next clip options (actions)
+	
+	this.addtrigger = function(trigger) {
+		this.triggers.push(trigger);
+	}
+	
+	this.addropt = function(o) {
+		this.reac_options.push(o);
+	}
+	
+	this.gettxt = function(v="") {
+		if ( v !== "" || typeof this.inputs !== "undefined" ) {
+			output.innerHTML = this.cliptext.replace("##v0##", v);
+		} else {
+			output.innerHTML = this.cliptext;
+		}
+	}
+	
+	this.outputClip = function(v="") {
+		//if ( this.type === "q" )
+			this.gettxt(v);
+		//else
+			//var that = this; // setTimeout - The 'this' problem
+			//setTimeout(function() { that.gettxt(v); }, overlord.timeint);
+	}
+
+	this.getropt = function() {
+		return this.reac_options[ randInt( this.reac_options.length ) ];
+	}
+}
+
+function map( value, start0, stop0, start1, stop1 ) {
+	return ((value-start0)/(stop0-start0))*(stop1-start1)+start1;
+}
+
+function randInt( maxN ) {
+	return ~~( Math.random() * maxN );     // returns a number between 0 and maxN-1
+}
+
+function randIntnp( maxN ) {
+	return ~~( Math.random() * 2 * maxN ) - maxN;     // returns a number between -(maxN-1) and maxN-1
+}
+
+</script>
+
+</body>
+</html>
