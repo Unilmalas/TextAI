@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<p>Dependency Parsing example</p>
+
+<input type="text" id="myVal" value="I ate fish">
+
+<button onclick="myFunction()">Insert</button>
+
+<p id="demo0"></p>
+
+<!--script src="lodash.js"></script-->
+
+<script>
+'use strict';
+
+// dependency parsing example
+
+var myht = []; // hash table
+
+// treebank tags: https://gist.github.com/nlothian/9240750
+var treebank = [
+	{ word: 'I', dtype: 'nsubj' },
+	{ word: 'fish', dtype: 'obj' },
+	{ word: 'you', dtype: 'nsubj' }
+];
+
+// dependency parsing core storage: stack, buffer, arcs
+var stack = ['root']; // array of strings
+var buffer = []; // array of strings
+var arcs = []; // array of dependency objects
+
+function dependency(fro, to) {
+	this.fro = fro;
+	this.to = to;
+	this.deptype = treebank.find(function(cval, idx, arr) {
+			return this === cval.word;
+		}, to);
+	
+	this.defdeptype = function(to) {
+		// lookup type via to-word
+		return treebank.find(function(cval, idx, arr) {
+			return this === cval.word;
+		}, to);
+	}
+}
+
+// dependency parsing core functions: shift, leftArc, rightArc
+function shift(stack, buffer) { // removes first node wi from buffer and pushes it onto the stack
+	if ( buffer.length === 0 ) return;
+	let word = buffer.splice(0, 1);
+	return stack.push(word[0]);
+}
+
+function leftArc(stack, arcs) { // adds a left dependency arc
+	if ( stack.length < 2 ) return;
+	arcs.push( new dependency( stack[1], stack[2] ) );
+	return stack.splice(1,1);
+}
+
+function rightArc(stack, arcs) { // adds a right dependency arc
+	if ( stack.length < 2 ) return;
+	else if ( stack.length > 2 ) {
+		arcs.push( new dependency( stack[1], stack[2] ) ); // the same!
+		return stack.splice(2,1); // subtle difference!
+	} else {
+		arcs.push( new dependency( stack[0], stack[1] ) ); // root dependency
+		return stack.splice(1,1); // subtle difference!
+	}
+}
+
+
+// use hashes later
+function djb2(word) { // djb2 hash function, word is a string
+    if ( typeof word !== 'string' ) return 0;
+	let hashAddress = 0;
+    for (let i=0; i<word.length; i++)
+        hashAddress = ((hashAddress << 5) + hashAddress) + word.charCodeAt(i);
+    return hashAddress;
+}
+
+function insrt(ht, key, value) { // insert key-value pair into hash-table (collision handling via chaining)
+	if ( typeof key !== 'number' ) return -1;
+	let tempentr = {	key: 		key,
+						chainidx:	0,
+						value: 		value };
+	// collision handling: chaining
+	let cidx = getcidx(ht, key);
+	if ( cidx >= 0 ) // collision
+		tempentr.chainidx = cidx + 1;
+	ht.push(tempentr);
+	return 1;
+}
+
+function get(ht, key) { // retrieve value via key from hash table
+	if ( typeof key !== 'number' ) return -1;
+	for ( let i=0; i<ht.length; i++ ) {
+		if ( ht[i].key === key )
+			return ht[i].value;
+	}
+	return -1;	
+}
+
+function getcidx(ht, key) { // get chain idx
+	if ( typeof key !== 'number' ) return -1;
+	let maxcidx = -1;
+	for ( let i=0; i<ht.length; i++ ) {
+		if ( ht[i].key === key && ht[i].chainidx > maxcidx )
+			maxcidx = ht[i].chainidx;
+	}
+	return maxcidx;
+}
+
+function myFunction() {
+	/*let tempentr = {	key:	 	0,
+						chainidx:	0,
+						value:	 	'' };
+	tempentr.value = document.getElementById("myVal").value;
+	tempentr.key = djb2(tempentr.value);
+	insrt(myht, tempentr.key, tempentr.value);
+	document.getElementById("demo0").innerHTML = get(myht, tempentr.key); */
+	buffer = document.getElementById("myVal").value.split(' ');
+	//console.log(buffer);
+	shift(stack, buffer);
+	//console.log(stack);
+	shift(stack, buffer);
+	//console.log(stack);
+	leftArc(stack, arcs);
+	console.log(arcs);
+	shift(stack, buffer);
+	rightArc(stack, arcs);
+	rightArc(stack, arcs);
+	console.log(arcs);
+	console.log(stack);
+}
+</script>
+
+</body>
+</html>
