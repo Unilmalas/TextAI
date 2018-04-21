@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<p>n-gram language model example</p>
+
+<input type="text" id="myVal" value="I ate fish">
+
+<button onclick="myFunction()">Insert</button>
+
+<p id="demo0"></p>
+
+<!--script src="lodash.js"></script-->
+
+<script>
+'use strict';
+
+// n-gram language model example
+
+var myht = []; // hash table
+
+var mytext = 'his silver lances long and keen the starlight in his shield was caught There might and glory wealth untold Were wielded from his ivory throne In many-pillared halls of stone There beryl pearl and opal pale And metal wrought like fishes mail Buckler and corslet axe and sword And gleaming spears were laid in hoard All these he had and loved them less Than a maiden once in Elfinesse Where the forest stream went through the wood and silent all the stems there stood of tall trees moveless hanging dark with mottled shadows on their bark above the green and gleaming river there came through leaves a sudden shiver a windy whisper through the still cool silences and down the hill as faint as a deep sleeper breath an echo came as cold as death Long are the paths of shadow made where no foots print is ever laid over the hills across the seas Far far away are the Lands of Ease but the Land of the Lost is further yet where the Dead wait while ye forget No moon is there no voice no sound of beating heart a sigh profound once in each age as each age dies alone is heard Far far it lies his silver lances long and keen the starlight in his shield was caught There might and glory wealth untold Were wielded from his ivory throne In many-pillared halls of stone There beryl pearl and opal pale And metal wrought like fishes mail Buckler and corslet axe and sword And gleaming spears were laid in hoard All these he had and loved them less Than a maiden once in Elfinesse Where the forest stream went through the wood and silent all the stems there stood of tall trees moveless hanging dark with mottled shadows on their bark above the green and gleaming river there came through leaves a sudden shiver a windy whisper through the still cool silences and down the hill as faint as a deep sleeper breath an echo came as cold as death Long are the paths of shadow made where no foots print is ever laid over the hills across the seas Far far away are the Lands of Ease but the Land of the Lost is further yet where the Dead wait while ye forget No moon is there no voice no sound of beating heart a sigh profound once in each age as each age dies alone is heard Far far it lies';
+
+function getngram(textarr, pos, n) {
+	if ( pos + n > textarr.length ) return [];
+	let retarr = [];
+	for ( let i=pos+n; i>pos; i-- ) {
+		retarr.push(textarr[i]);
+	}
+	return retarr;
+}
+
+// hash table
+function djb2(word) { // djb2 hash function, word is a string
+    if ( typeof word !== 'string' ) return 0;
+	let hashAddress = 0;
+    for (let i=0; i<word.length; i++)
+        hashAddress = ((hashAddress << 5) + hashAddress) + word.charCodeAt(i);
+    return hashAddress;
+}
+
+function insrt(ht, key, value) { // insert key-value pair into hash-table (collision handling via chaining)
+	if ( typeof key !== 'number' ) return -1;
+	let tempentr = {	key: 		key,
+						chainidx:	0,
+						value: 		value };
+	// collision handling: chaining
+	let cidx = getcidx(ht, key);
+	if ( cidx >= 0 ) // collision
+		tempentr.chainidx = cidx + 1;
+	ht.push(tempentr);
+	return 1;
+}
+
+function get(ht, key) { // retrieve value via key from hash table
+	if ( typeof key !== 'number' ) return -1;
+	let retarr = [];
+	for ( let i=0; i<ht.length; i++ ) {
+		if ( ht[i].key === key )
+			retarr.push(ht[i].value);
+	}
+	return retarr;	
+}
+
+function getcidx(ht, key) { // get chain idx
+	if ( typeof key !== 'number' ) return -1;
+	let maxcidx = -1;
+	for ( let i=0; i<ht.length; i++ ) {
+		if ( ht[i].key === key && ht[i].chainidx > maxcidx )
+			maxcidx = ht[i].chainidx;
+	}
+	return maxcidx;
+}
+
+function myFunction() {
+	/*let tempentr = {	key:	 	0,
+						chainidx:	0,
+						value:	 	'' };
+	tempentr.value = document.getElementById("myVal").value;
+	tempentr.key = djb2(tempentr.value);
+	insrt(myht, tempentr.key, tempentr.value);
+	document.getElementById("demo0").innerHTML = get(myht, tempentr.key); */
+	//buffer = document.getElementById("myVal").value.split(' ');
+	let textarr = mytext.split(' ');
+	//console.log(getngram(textarr, 5, 3));
+	for ( let i=0; i<textarr.length-3; i++ ) {
+		let ngram = getngram(textarr, i, 3).toString();
+		insrt( myht, djb2( ngram ), ngram );
+	}
+	for ( let i=0; i<textarr.length-2; i++ ) {
+		let ngram = getngram(textarr, i, 2).toString();
+		insrt( myht, djb2( ngram ), ngram );
+	}
+	for ( let i=0; i<10; i++ ) {
+		let ngram = getngram(textarr, i, 3).toString();
+		let retvals = get( myht, djb2( ngram ) );
+		console.log( retvals );
+		console.log( 1 / retvals.length );
+	}
+	//console.log(myht);
+}
+</script>
+
+</body>
+</html>
