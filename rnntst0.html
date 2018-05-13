@@ -77,10 +77,10 @@ var perplex = function (a, b) { // evaluate perplexity of two arrays of vectors
 	}
 	
 var crossentr = function (a, b) { // evaluate crossentropy on two vectors
-		let nn = a[0].n;
-		let mm = a[0].m;
+		let nn = a.n;
+		let mm = a.m;
 		// check dimensions
-		if ( nn !== b[0].n || mm !== b[0].m || a.length !== b.length )
+		if ( nn !== b.n || mm !== b.m || a.length !== b.length )
 			return -1;
 		let prodsum = 0.;
 		for ( let j=0; j < a.length; j++ )
@@ -124,14 +124,17 @@ class Matrix { // matrix class
 		if ( i > this.n || i < 0 ) return -1;
 		if ( arr.constructor !== Array) return -2; // fastest check for array
 		if ( arr.length < this.m ) return -3;
-		for ( let j=0; j<this.m; j++ )
+		this.m = arr.length;
+		for ( let j=0; j<this.m; j++ ) {
 			this.val[i][j] = arr[j];
+		}
 	}
 	
 	putArrc ( j, arr ) { // put an array, by column
 		if ( j > this.m || j < 0 ) return -1;
 		if ( arr.constructor !== Array) return -2;
 		if ( arr.length < this.n ) return -3;
+		this.n = arr.length;
 		for ( let i=0; i<this.n; i++ )
 			this.val[i][j] = arr[i];
 	}
@@ -183,17 +186,18 @@ class Matrix { // matrix class
 		}
 	}
 	
-	mult2 ( a, b ) { // matrix multiplication
-		let m = a.m;
-		let n = b.n;
-		let out = new Matrix( n,m );
-		//console.log(n + " : " + m);
+	mult2 ( a, b ) { // matrix multiplication - in case of two vectors this will create a matrix via element-times-element
+		// check: a.m == b.n
+		let n = a.n;
+		let m = b.m;
+		let out = new Matrix( n, m );
+		//console.log('n: ' + n + " m: " + m);
+		//console.log('a: ' + a.val)
+		//console.log('b: ' + b.val)
 		for( let i=0; i<a.n; i++ ) { // loop over rows of a
 		  for( let j=0; j<b.m; j++ ) { // loop over cols of b
 			let dot = 0.0;
 			for( let k=0; k<a.m; k++ ) { // dot product
-				//console.log(a.m + " : " + k);
-				//console.log(b)
 				dot += a.val[i][k] * b.val[k][j];
 			}
 			out.val[i][j] = dot;
@@ -201,7 +205,6 @@ class Matrix { // matrix class
 		}
 		return out;
 	}
-
 	
 	dot ( b, owr ) { // regular matrix product, owr=true: overwrite matrix
 		let resM = new Matrix( this.n, b.m );
@@ -332,23 +335,20 @@ function myFunction() {
 	// input words
 	let xt = [];
 	xt[0] = new Matrix( 10, 1 ); // dim v - todo: how to store for all ts?
-	xt[0].putArrl(0, [0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
-	
-	// h0 given
-	let h0 = new Matrix( 10, 1 ); // dim Dh
-	h0.putArrl(0, [0, 0, 1, 1, 0, 1, 0, 1, 1, 1]);
+	xt[0].putArrc(0, [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.]);
 	
 	let eEmbed = new Matrix(8, 10, 'm'); // dim d x v
 	let et = [];
-	et[0] = new Matrix( 10, 1 ); // word embeddings dim d
+	et[0] = new Matrix( 8, 1 ); // word embeddings dim d
 	let h = [];
 	h[0] = new Matrix( 10, 1 ); // dim Dh - todo: how to store for all ts?
+	h[0].putArrc(0, [0., 0., 1., 1., 0., 1., 0., 1., 1., 1.]);
 	
 	let wHid = new Matrix( 10, 10, 'm' ); // hidden weights dim Dh x Dh
 	let weInp = new Matrix( 10, 8, 'm' ); // input weights dim Dh x d
 	
-	let b1 = new Matrix( 10, 1 ); // bias hidden states dim Dh
-	let b2 = new Matrix( 10, 1 ); // bias output dim v
+	let b1 = new Matrix( 10, 1, 'm' ); // bias hidden states dim Dh
+	let b2 = new Matrix( 10, 1, 'm' ); // bias output dim v
 	
 	let oUt = new Matrix( 10, 10, 'm' ); // output word representation dim v x Dh
 	
@@ -356,37 +356,47 @@ function myFunction() {
 	let ytt = [];
 	y_t[0] = new Matrix( 10, 1 ); // output distribution dim v - todo: how to store for all ts?
 	ytt[0] = new Matrix( 10, 1 ); // truth dim v - todo: how to store for all ts?
+	ytt[0].putArrc(0, [0., 0., 0., 1., 0., 1., 0., 1., 0., 1.]);
 	
 	// forward propagation
 	let t = 0; // time
-	et[t] = et[t].mult2( eEmbed, xt[t] ); // et = E * xt
+	et[t] = eEmbed.mult2( eEmbed, xt[t] ); // et = E * xt
 	if ( t > 0 )
-		h[t] = h[t].mult2( h[t-1], wHid );
+		h[t] = wHid.mult2( wHid, h[t-1] );
 	else
-		h[t] = h[t].mult2( h[t], wHid );
-	h[t].add( et[t].dot( weInp, false ) );
+		h[t] = wHid.mult2( wHid, h[t] );
+	h[t].add( weInp.mult2( weInp, et[t] ) ); // ht = sigmoid(Wh*ht-1+We*et+b1)
 	h[t].add( b1 );
 	h[t].sig( false );
-	y_t[t] = y_t[t].mult2( oUt, h[t] ); // h[t] * oUt + b2
+	//console.log(h[t].val)
+	
+	y_t[t] = oUt.mult2( oUt, h[t] ); // oUt * h[t] + b2
 	y_t[t].add( b2 );
+	//console.log(y_t[t].val)
+	//console.log(ytt[t].val)
 	
 	// compute cross-entropy loss
-	let loss = crossentr( ytt, y_t );
+	let loss = crossentr( ytt[t], y_t[t] );
+	//console.log(loss)
 	
 	// compute gradiants and update weights (backward propagation)
 	let delta1 = new Matrix( 10, 1 );
 	let delta2 = new Matrix( 10, 1 );
-	delta1.add( y_t );
+	delta1.add( y_t[0] );
+	//console.log(delta1.val)
 	delta1.add( ytt, true ); // delta1 = y_t - ytt
-	let hunit = new Matrix( 10, 1, 1. ); // unit vactor for h, dim Dh
+	//console.log(delta1.val)
+	let hunit = [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]; // unit vactor for h, dim Dh
 	delta2.putArrc( 0, hunit ); // unit vector
-	delta2.add( h[t], true ); // this is diag( h[t] * (1 - h[t]) )
+	delta2.add( h[t], true ); // this is diag( h[t] * (1 - h[t]) ), dim v
 	delta2 = delta2.mult2( h[t], delta2 );
 	delta2 = delta2.mult2( oUt, delta2 );
-	delta2 = delta2.mult2( delta1, delta2 ); // delta2 = delta1 * U * h[t] * (1 - h[t])
+	delta2 = delta2.trans().dot( delta1 , false ); // delta2 = delta1 * U * h[t] * (1 - h[t]), dim 1 (scalar)
+	//console.log(delta2.val)
 	
-	let diaght1 = new Matrix( 10, 1, 1. );
+	let diaght1 = new Matrix( 10, 10, 1. );
 	diaght1.putArrc( 0, hunit );
+	//console.log(diaght1.val);
 	if ( t > 0 ) {
 		diaght1.add( h[t-1], true );
 		diaght1 = h[t-1].mult2( h[t-1], diaght1 ); // = h[t-1] * (1 - h[t-1])
@@ -394,39 +404,42 @@ function myFunction() {
 		diaght1.add( h[t], true );
 		diaght1 = h[t].mult2( h[t], diaght1 ); // = h[t-1] * (1 - h[t-1]) for t=0
 	}
-	
-	
+	//console.log(diaght1.val);
+	//console.log(delta2.val);
 	let de = new Matrix( 8, 1 ); // de = delta2 * Wh * diaght * We, dim d
 	let dweInp = new Matrix( 10, 8 ); // dWe = delta2 * Wh * diaght * e, dim Dh x d
 	let dwHid = new Matrix( 10, 10 ); // dWh = delta2 * Wh * diaght * ht-2, dim Dh x Dh
 	
 	de = delta2.mult2( delta2, wHid );
-	console.log(de.val);
+	//console.log(de.val);
 	de = de.mult2( de, diaght1 );
+	//console.log(de.val);
 	
 	dweInp = de;
 	dwHid = de;
 	de = de.mult2( de, weInp );
 	de.mult( etha );
-	
-	
+	//console.log(de.val);
+	// checked till here, all good +++++++++++++++++++++++++++++++++
+	//console.log(dweInp.val)
+	//console.log(et[t].val)
 	if ( t > 0 )
-		dweInp = dweInp.mult2( dweInp, et[t-1] );
+		dweInp = dweInp.mult2( dweInp, et[t-1] ); // ????
 	else
-		dweInp = dweInp.mult2( dweInp, et[t] );
+		dweInp = dweInp.mult2( dweInp.trans() , et[t].trans() );
 	dweInp.mult( etha );
+	//console.log(dweInp.val)
 	
 	if ( t > 1 )
 		dwHid = dwHid.mult2( dwHid, h[t-2] );
 	else
-		dwHid = dwHid.mult2( dwHid, h[t] );
+		dwHid = dwHid.mult2( dwHid.trans(), h[t].trans() );
 	dwHid.mult( etha );
 	
 	console.log(dweInp.val)
 	console.log(dwHid.val)
 	
 	// evaluate perplexity
-
 }
 </script>
 
