@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<script>
+// Jaro distance
+'use strict';
+
+var tests1 = ['DWAYNE', 'MARTHA', 'DIXON', 'JELLYFISH', 'ABCDEFG'];
+var tests2 = ['DUANE', 'MARHTA', 'DICKSONX', 'SMELLYFISH', 'AGCDEFB'];
+var itst = 0;
+var s1 = tests1[itst];
+var s2 = tests2[itst];
+
+var md = Math.floor(Math.max(s1.length, s2.length)/2.-1.);
+var trans = 0.; // number of transpositions
+
+console.log('Jaro distance: ' + jarod(s1, s2, md));
+// correct distances: 0.8222222 0.9444444 0.7666667 0.8962963
+
+function cmatch(s1, s2, md) { // returns character match list
+	let slist = [];
+	let plist1 = [];
+	let plist2 = [];
+	let lasti = -1; // to prevent double additions
+	trans = 0.;
+	for ( let i = 0; i < s1.length; i++ ) {
+		for ( let j = 0; j < s2.length; j++ ) {
+			if ( ( s1.charAt(i) === s2.charAt(j) ) && ( Math.abs(i-j) <= md ) && ( i !== lasti ) ) {
+				slist.push(s1.charAt(i));
+				lasti = i;
+				plist1.push(i);
+				plist2.push(j);
+			}
+		}
+	}
+	plist1.forEach( function ( val, idx ) {
+		console.log(val + ' : ' + plist2[idx]);
+		console.log(s1.charAt(plist1[idx-1]) + ' : ' + s2.charAt(plist2[idx-1]));
+		console.log(s1.charAt(val) + ' : ' + s2.charAt(plist2[idx]));
+		if ( s1.charAt(val) !== s2.charAt(plist2[idx]) ) {
+			if ( idx > 0 ) {
+				if ( s1.charAt(plist1[idx-1]) === s2.charAt(plist2[idx-1])) // check for sequence endings
+					trans++;
+			} else
+				trans++;
+		} else {
+			if ( idx > 0 ) {
+				if ( s1.charAt(plist1[idx-1]) !== s2.charAt(plist2[idx-1]) ) // check for sequence endings
+					trans++;
+			}
+		}
+	});
+	trans /= 2.;
+	console.log(trans);
+	return slist;
+}
+
+function jarod(s1, s2, md) {
+	let matchedlist = cmatch(s1, s2, md);
+	let m = matchedlist.length;
+	if ( m === 0 || s1.lenght === 0 || s2.length === 0 )
+		return 0.;
+	else
+		return ( m / s1.length + m / s2.length + ( m - trans ) / m ) / 3.;
+}
+
+</script>
+</body>
+</html>
