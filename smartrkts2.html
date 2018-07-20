@@ -1,0 +1,282 @@
+<!doctype html>
+<html>
+
+<canvas id="cnv" width="400" height="600"></canvas>
+
+<script>
+'use strict';
+
+// adapted from Shiffmann and https://code.sololearn.com/WbS8WMNrhm0I/#js w/o p5.js
+
+// sketch.js
+const maximumForce = 0.25;
+var target;
+var population;
+var obstacle;
+
+var width = 400;
+var height = 600;
+
+var framerate = 1/40;
+
+window.onload=function() {
+	var canv=document.getElementById("cnv");
+	var ctx=canv.getContext("2d");
+	target = new Vec(width/2, 50);
+	//population = new population(20, 300, 0.01);
+	population = new population(20, 160, 0.01);
+	obstacle = { // Dimensions of barrier
+        x: width / 2 - 100,
+        y: 3 * height / 5 - 10,
+        w: 200,
+        h: 20
+    };
+	setInterval(draw, 1000 * framerate, canv, ctx); // calls a function or evaluates an expression at specified intervals
+}
+
+function draw(canv, ctx) { // update frame
+	ctx.fillStyle="black";
+	ctx.fillRect(0,0,canv.width,canv.height); // draw background
+  
+	ctx.beginPath(); // render target
+	ctx.strokeStyle="red";
+	ctx.arc(target.x, target.y, 10, 0, 2*Math.PI);
+	ctx.stroke();
+ 
+	ctx.beginPath(); // render barrier
+	ctx.strokeStyle="blue";
+	ctx.rect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+	ctx.stroke();
+	
+	population.run(ctx);
+}
+
+// population.js
+function population(popSize, lifespan, mutationRate) { // create rocket population: rockets and their genes
+    this.size = popSize; // number of rockets
+    this.mutationRate = mutationRate;
+    this.lifespan = lifespan;
+    this.age = 0;
+    this.rockets = []; // array of rockets
+	this.genctr = 0; // generation counter for incremental learning
+	
+    for (var i = 0; i < this.size; i++) { // Associates a rocket to an array index (and init DNA)
+        this.rockets.push(new rocket(new DNA(this.lifespan)));
+    }
+	
+    this.run = function (ctx) { // run: update rocket fitness and draw them, increment age, process end of lifespan
+        for (var i = 0; i < this.size; i++) {
+            this.rockets[i].update();
+            this.rockets[i].draw(ctx);
+        }
+        this.age++;
+        if (this.age >= this.lifespan) { // end of lifespan?
+            this.reproduce();
+			this.genctr++; // next generation
+			if ( this.generation % 3 === 0 )
+				this.lifespan += 20; // incremental learing: increase lifespan - gain moves
+            this.age = 0;
+        }
+    };
+
+    this.reproduce = function () { // splice parent dna to produce next gen
+        let nextGeneration = [];
+        for (var i = 0; i < this.size; i++) {
+            var parentA = this.acceptReject();
+            var parentB = this.acceptReject();
+            var childDna = parentA.dna.crossover(parentB.dna);
+            childDna.mutation(this.mutationRate);
+            nextGeneration.push(new rocket(childDna));
+        }
+        this.rockets = nextGeneration;
+    };
+
+    this.acceptReject = function () { // randomly choose a fit rocket (higher fitness preferred)
+		let rocket = this.rockets[randInt(this.size)];
+        if (Math.random() < (rocket.fitness() / this.getMaxFitness())){
+            return rocket;
+        } else {
+            return this.acceptReject();
+        }
+    };
+
+    this.getMaxFitness = function () { // get max fitness
+        var maxFitness = 0;
+        this.rockets.forEach(function (rocket) {
+            var fitness = rocket.fitness();
+            if (fitness > maxFitness) {
+                maxFitness = fitness;
+            }
+        });
+        return maxFitness;
+    };
+}
+
+// rocket.js
+function rocket(dna) { // rocket class
+    this.dna = dna;
+    this.age = 0;
+    this.position = new Vec(width / 2, height); // Physics of rocket at current instance
+    this.velocity = new Vec(0., 0.);
+    this.acceleration = new Vec(0., 0.);
+    this.completed = false; // Checkes rocket has reached target
+    this.crashed = false; // Checks if rocket had crashed
+
+    this.applyForce = function (force) { // Object can recieve force and add to acceleration
+        this.acceleration.vadd(force);
+    };
+
+    this.update = function () { // update physics and handle obstacle, target
+        if (!this.completed && !this.crashed) {
+            this.applyForce(this.dna.genes[this.age]);
+            this.velocity.vadd(this.acceleration);
+            this.position.vadd(this.velocity);
+            this.acceleration.vmultc(0);
+
+            if (this.distanceToTarget() <= 20) {
+                this.completed = true;
+                //this.position = createVector(target.x, target.y);
+            }
+            if (this.position.x >= obstacle.x && this.position.x <= obstacle.x + obstacle.w) {
+                if (this.position.y >= obstacle.y && this.position.y <= obstacle.y + obstacle.h) {
+                    this.crashed = true;
+                }
+            }
+        }
+        this.age++;
+    };
+
+    this.draw = function (ctx) {
+		//console.log('show ' + this.position.x)
+		ctx.beginPath();
+		ctx.strokeStyle="lime";
+		ctx.arc(this.position.x, this.position.y, 3, 0, 2*Math.PI);
+		ctx.stroke();
+    };
+
+    this.fitness = function () { // fitness as a function of how close we got to the target
+        var distance = this.distanceToTarget();
+        var fitness = 1 / Math.exp(distance); // invert d: the closer the higher the fitness
+        if (this.crashed) {
+            fitness *= 0.01; // reduce fitness
+        }
+        return fitness;
+    };
+
+    this.distanceToTarget = function () { // distance to target
+        return dist(this.position.x, this.position.y, target.x, target.y);
+    };
+}
+
+// dna.js
+function DNA(length, genes) { // Recieves genes and create a dna object
+    this.length = length;
+    if (genes) {
+        this.genes = genes;
+    } else {
+        this.genes = [];
+        for (var i = 0; i < this.length; i++) { // init genes if not defined
+            this.genes.push(rndVec()); // Gives random vectors
+            this.genes[i].setMag(maximumForce); // Sets maximum force of vector to be applied to a rocket
+        }
+    }
+
+    this.crossover = function (partner) { // Performs a crossover with another member of the species
+        var genes = [];
+        var pivot = ~~(randInt(this.length));
+        for (var i = 0; i < this.length; i++) { // mix genes with partner genes
+            if (i < pivot) {
+                genes.push(this.genes[i]);
+            } else {
+                genes.push(partner.genes[i]);
+            }
+        }
+        return new DNA(this.length, genes); // Gives DNA object an array
+    };
+
+    this.mutation = function (mutationRate) { // Adds random mutation to the genes to add variance
+        for (var i = 0; i < this.length; i++) {          
+            if (Math.random() < mutationRate) {
+                this.genes[i] = rndVec();
+                this.genes[i].setMag(maximumForce);
+            }
+        }
+    };
+}
+
+// vector functions
+
+function Vec(x, y) {
+	this.x = x;
+	this.y = y;
+}
+
+function rndVec() {
+	let v = new Vec(randIntnp(10), randIntnp(10));
+	v.vnorm();
+	return v;
+}
+
+Vec.prototype.set = function(a) {
+	this.x += a.x;
+	this.y += a.y;
+}
+
+Vec.prototype.vadd = function(a) {
+	this.x += a.x;
+	this.y += a.y;
+}
+
+Vec.prototype.vsub = function(a) {
+	this.x -= a.x;
+	this.y -= a.y;
+}
+
+Vec.prototype.vlen = function() {
+	return Math.sqrt(( this.x * this.x ) + ( this.y * this.y ));
+}
+
+Vec.prototype.vmultc = function(c) {
+	this.x *= c;
+	this.y *= c;
+}
+
+Vec.prototype.vnorm = function() {
+	let vl = this.vlen();
+	if ( vl > 0 ) {
+		this.x /= vl;
+		this.y /= vl;
+	}
+}
+
+Vec.prototype.setMag = function(m) {
+	this.vnorm();
+	this.vmultc(m);
+}
+
+Vec.prototype.vlimit = function(l) {
+	if ( this.vlen() > l )
+		this.setMag(l);
+}
+
+// util functions
+
+function map(value, start0, stop0, start1, stop1) {
+	return ((value-start0)/(stop0-start0))*(stop1-start1)+start1;
+}
+
+function dist(x0, y0, x1, y1) {
+	let dx = x1 - x0;
+	let dy = y1 - y0;
+	return Math.sqrt(( dx * dx ) + ( dy * dy ));
+}
+
+function randInt( maxN ) {
+	return ~~( Math.random() * maxN );     // returns a number between 0 and maxN-1
+}
+
+function randIntnp( maxN ) {
+	return ~~( Math.random() * 2 * maxN ) - maxN;     // returns a number between -(maxN-1) and maxN-1
+}
+</script>
+</html>
