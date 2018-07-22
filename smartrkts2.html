@@ -12,23 +12,29 @@
 const maximumForce = 0.25;
 var target;
 var population;
-var obstacle;
+var obstacle0, obstacle1;
 
 var width = 400;
 var height = 600;
 
-var framerate = 1/40;
+var framerate = 1/45;
 
 window.onload=function() {
 	var canv=document.getElementById("cnv");
 	var ctx=canv.getContext("2d");
 	target = new Vec(width/2, 50);
 	//population = new population(20, 300, 0.01);
-	population = new population(20, 160, 0.01);
-	obstacle = { // Dimensions of barrier
-        x: width / 2 - 100,
+	population = new population(40, 150, 0.03);
+	obstacle0 = { // Dimensions of barrier 0 ******************
+        x: width / 2 - 180,
         y: 3 * height / 5 - 10,
         w: 200,
+        h: 20
+    };
+	obstacle1 = { // Dimensions of barrier 1 ******************
+        x: width / 2 - 10,
+        y: 1.5 * height / 5 - 10,
+        w: 150,
         h: 20
     };
 	setInterval(draw, 1000 * framerate, canv, ctx); // calls a function or evaluates an expression at specified intervals
@@ -43,9 +49,14 @@ function draw(canv, ctx) { // update frame
 	ctx.arc(target.x, target.y, 10, 0, 2*Math.PI);
 	ctx.stroke();
  
-	ctx.beginPath(); // render barrier
+	ctx.beginPath(); // render barrier 0
 	ctx.strokeStyle="blue";
-	ctx.rect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+	ctx.rect(obstacle0.x, obstacle0.y, obstacle0.w, obstacle0.h);
+	ctx.stroke();
+	
+	ctx.beginPath(); // render barrier 1
+	ctx.strokeStyle="blue";
+	ctx.rect(obstacle1.x, obstacle1.y, obstacle1.w, obstacle1.h);
 	ctx.stroke();
 	
 	population.run(ctx);
@@ -60,12 +71,12 @@ function population(popSize, lifespan, mutationRate) { // create rocket populati
     this.rockets = []; // array of rockets
 	this.genctr = 0; // generation counter for incremental learning
 	
-    for (var i = 0; i < this.size; i++) { // Associates a rocket to an array index (and init DNA)
+    for (let i = 0; i < this.size; i++) { // Associates a rocket to an array index (and init DNA)
         this.rockets.push(new rocket(new DNA(this.lifespan)));
     }
 	
     this.run = function (ctx) { // run: update rocket fitness and draw them, increment age, process end of lifespan
-        for (var i = 0; i < this.size; i++) {
+        for (let i = 0; i < this.size; i++) {
             this.rockets[i].update();
             this.rockets[i].draw(ctx);
         }
@@ -73,7 +84,7 @@ function population(popSize, lifespan, mutationRate) { // create rocket populati
         if (this.age >= this.lifespan) { // end of lifespan?
             this.reproduce();
 			this.genctr++; // next generation
-			if ( this.generation % 3 === 0 )
+			if ( this.generation % 3 === 0 && this.lifespan < 500 )
 				this.lifespan += 20; // incremental learing: increase lifespan - gain moves
             this.age = 0;
         }
@@ -81,10 +92,10 @@ function population(popSize, lifespan, mutationRate) { // create rocket populati
 
     this.reproduce = function () { // splice parent dna to produce next gen
         let nextGeneration = [];
-        for (var i = 0; i < this.size; i++) {
-            var parentA = this.acceptReject();
-            var parentB = this.acceptReject();
-            var childDna = parentA.dna.crossover(parentB.dna);
+        for (let i = 0; i < this.size; i++) {
+            let parentA = this.acceptReject();
+            let parentB = this.acceptReject();
+            let childDna = parentA.dna.crossover(parentB.dna);
             childDna.mutation(this.mutationRate);
             nextGeneration.push(new rocket(childDna));
         }
@@ -101,9 +112,9 @@ function population(popSize, lifespan, mutationRate) { // create rocket populati
     };
 
     this.getMaxFitness = function () { // get max fitness
-        var maxFitness = 0;
+        let maxFitness = 0;
         this.rockets.forEach(function (rocket) {
-            var fitness = rocket.fitness();
+            let fitness = rocket.fitness();
             if (fitness > maxFitness) {
                 maxFitness = fitness;
             }
@@ -121,6 +132,7 @@ function rocket(dna) { // rocket class
     this.acceleration = new Vec(0., 0.);
     this.completed = false; // Checkes rocket has reached target
     this.crashed = false; // Checks if rocket had crashed
+	this.path = []; // path logging
 
     this.applyForce = function (force) { // Object can recieve force and add to acceleration
         this.acceleration.vadd(force);
@@ -137,26 +149,45 @@ function rocket(dna) { // rocket class
                 this.completed = true;
                 //this.position = createVector(target.x, target.y);
             }
-            if (this.position.x >= obstacle.x && this.position.x <= obstacle.x + obstacle.w) {
-                if (this.position.y >= obstacle.y && this.position.y <= obstacle.y + obstacle.h) {
+            if (this.position.x >= obstacle0.x && this.position.x <= obstacle0.x + obstacle0.w) { // collision detection 0
+                if (this.position.y >= obstacle0.y && this.position.y <= obstacle0.y + obstacle0.h) {
                     this.crashed = true;
                 }
             }
+			if (this.position.x >= obstacle1.x && this.position.x <= obstacle1.x + obstacle1.w) { // collision detection 1
+                if (this.position.y >= obstacle1.y && this.position.y <= obstacle1.y + obstacle1.h) {
+                    this.crashed = true;
+                }
+            }
+			
+			// path logging
+			this.path.push(JSON.parse(JSON.stringify(this.position)));
         }
         this.age++;
     };
 
     this.draw = function (ctx) {
-		//console.log('show ' + this.position.x)
 		ctx.beginPath();
 		ctx.strokeStyle="lime";
 		ctx.arc(this.position.x, this.position.y, 3, 0, 2*Math.PI);
 		ctx.stroke();
+		
+		// draw rocket path
+		//console.log('pos: ' + this.position.x);
+		for ( let i=0; i<this.path.length-1; i++ ) {
+			ctx.beginPath();
+			ctx.strokeStyle="Turquoise";
+			//console.log(' path ' + this.path[i].x);
+			ctx.moveTo(this.path[i].x, this.path[i].y);
+			//ctx.lineTo(this.path[i+1].x, this.path[i+1].y); // for straight line
+			ctx.lineTo(this.path[i].x+1, this.path[i].y+1); // dotted line
+			ctx.stroke();
+		}
     };
 
     this.fitness = function () { // fitness as a function of how close we got to the target
-        var distance = this.distanceToTarget();
-        var fitness = 1 / Math.exp(distance); // invert d: the closer the higher the fitness
+        let distance = this.distanceToTarget();
+        let fitness = 1 / Math.exp(distance); // invert d: the closer the higher the fitness
         if (this.crashed) {
             fitness *= 0.01; // reduce fitness
         }
@@ -175,16 +206,16 @@ function DNA(length, genes) { // Recieves genes and create a dna object
         this.genes = genes;
     } else {
         this.genes = [];
-        for (var i = 0; i < this.length; i++) { // init genes if not defined
+        for (let i = 0; i < this.length; i++) { // init genes if not defined
             this.genes.push(rndVec()); // Gives random vectors
             this.genes[i].setMag(maximumForce); // Sets maximum force of vector to be applied to a rocket
         }
     }
 
     this.crossover = function (partner) { // Performs a crossover with another member of the species
-        var genes = [];
-        var pivot = ~~(randInt(this.length));
-        for (var i = 0; i < this.length; i++) { // mix genes with partner genes
+        let genes = [];
+        let pivot = ~~(randInt(this.length));
+        for (let i = 0; i < this.length; i++) { // mix genes with partner genes
             if (i < pivot) {
                 genes.push(this.genes[i]);
             } else {
@@ -195,7 +226,7 @@ function DNA(length, genes) { // Recieves genes and create a dna object
     };
 
     this.mutation = function (mutationRate) { // Adds random mutation to the genes to add variance
-        for (var i = 0; i < this.length; i++) {          
+        for (let i = 0; i < this.length; i++) {          
             if (Math.random() < mutationRate) {
                 this.genes[i] = rndVec();
                 this.genes[i].setMag(maximumForce);
