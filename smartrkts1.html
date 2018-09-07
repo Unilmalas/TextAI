@@ -116,6 +116,7 @@ function rocket(dna) { // rocket class
     this.acceleration = new Vec(0., 0.);
     this.completed = false; // Checkes rocket has reached target
     this.crashed = false; // Checks if rocket had crashed
+	this.path = []; // path logging
 
     this.applyForce = function (force) { // Object can recieve force and add to acceleration
         this.acceleration.vadd(force);
@@ -137,6 +138,9 @@ function rocket(dna) { // rocket class
                     this.crashed = true;
                 }
             }
+			
+			// path logging
+			this.path.push(JSON.parse(JSON.stringify(this.position)));
         }
         this.age++;
     };
@@ -147,6 +151,18 @@ function rocket(dna) { // rocket class
 		ctx.strokeStyle="lime";
 		ctx.arc(this.position.x, this.position.y, 3, 0, 2*Math.PI);
 		ctx.stroke();
+		
+		// draw rocket path
+		//console.log('pos: ' + this.position.x);
+		for ( let i=0; i<this.path.length-1; i++ ) {
+			ctx.beginPath();
+			ctx.strokeStyle="Turquoise";
+			//console.log(' path ' + this.path[i].x);
+			ctx.moveTo(this.path[i].x, this.path[i].y);
+			//ctx.lineTo(this.path[i+1].x, this.path[i+1].y); // for straight line
+			ctx.lineTo(this.path[i].x+1, this.path[i].y+1); // dotted line
+			ctx.stroke();
+		}
     };
 
     this.fitness = function () { // fitness as a function of how close we got to the target
