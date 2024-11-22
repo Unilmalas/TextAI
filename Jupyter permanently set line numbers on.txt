@@ -1,0 +1,19 @@
+Jupyter permanently set line numbers on
+
+
+in
+
+C:\Users\bscho\.jupyter\lab\user-settings\@jupyterlab\notebook-extension
+
+
+tracker.jupyterlab-settings
+
+
+
+
+set
+
+
+"lineNumbers": true
+
+for all three cell types
